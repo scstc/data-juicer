@@ -1,0 +1,47 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+# Lines below are suggestions — uncomment to activate.
+# Use ! prefix to force-include something excluded by defaults.
+#
+# Built-in defaults (always excluded unless negated):
+#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, etc.
+#
+# --- From .gitignore (uncomment to exclude) ---
+
+# outputs/
+# assets/
+# data_juicer.egg-info/
+# py_data_juicer.egg-info/
+# .DS_Store
+# wandb/
+# .ipynb_checkpoints/
+# label_studio_data/
+# label_studio_venv/
+# label_studio_connection.json
+# **/__dj__produced_data__/*
+# tests/ops/data/*dup*
+# tests/tools/tmp_*/
+# tests/ops/deduplicator/chinese_dedup/
+# tests/ops/deduplicator/english_dedup/
+# tmp/
+# perf_bench_data/
+# demos/local/*
+# .env
+# demos/local/*
+# /data_juicer/ops/deduplicator/minhash.cpython-*
+# /data_juicer/ops/deduplicator/tokenize.c
+# /data_juicer/ops/deduplicator/tokenize.cpython-*
+# .claude/
+# CLAUDE.md
+
+# --- Detected directories (uncomment to exclude) ---
+
+# tests/
+# docs/
+# scripts/
+
+# --- Test file patterns (uncomment to exclude) ---
+
+# *.test.*
+# *.spec.*
+# *.snap
