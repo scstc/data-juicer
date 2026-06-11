@@ -201,9 +201,10 @@ def parse_cli_datapath(dataset_path) -> Tuple[List[str], List[float]]:
     if not dataset_path or not dataset_path.strip():
         return [], []
 
-    # Use shlex to properly handle quoted strings
+    # Use shlex to properly handle quoted strings; keep non-POSIX mode on
+    # Windows so backslashes in paths are not treated as escape characters
     try:
-        tokens = shlex.split(dataset_path)
+        tokens = shlex.split(dataset_path, posix=(os.name != "nt"))
     except ValueError as e:
         raise ValueError(f"Invalid dataset path format: {e}")
 

@@ -958,7 +958,11 @@ def init_setup_from_cfg(cfg: Namespace, load_configs_only=False):
         # Ensure event_log_dir (logs/) exists - this is where logs are actually saved
         if not os.path.exists(cfg.event_log_dir):
             os.makedirs(cfg.event_log_dir, exist_ok=True)
-        logfile_name = f"export_{export_rel_path}_time_{timestamp}.txt"
+        # export_rel_path may contain path separators (e.g. "../data.jsonl"
+        # when export_path sits outside work_dir); strip them so the log
+        # filename never points into a non-existent sub-directory
+        export_flat = export_rel_path.replace("\\", "_").replace("/", "_")
+        logfile_name = f"export_{export_flat}_time_{timestamp}.txt"
         setup_logger(
             save_dir=cfg.event_log_dir,
             filename=logfile_name,
