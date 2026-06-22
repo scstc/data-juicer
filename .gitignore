@@ -51,6 +51,7 @@ demos/local/*
 /data_juicer/ops/deduplicator/minhash.cpython-*
 /data_juicer/ops/deduplicator/tokenize.c
 /data_juicer/ops/deduplicator/tokenize.cpython-*
+/data_juicer/ops/deduplicator/*.pyd
 
 # claude
 .claude/
