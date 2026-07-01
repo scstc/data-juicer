@@ -71,6 +71,45 @@ class CorrelationAnalysisTest(DataJuicerTestCaseBase):
         ret = corr_analyzer.analyze()
         self.assertIsNone(ret)
 
+    def test_init_drops_string_dtype_columns(self):
+        """回归:dataset[Fields.stats] 含有 pandas StringDtype 列时,
+        CorrelationAnalysis.__init__ 不应再抛
+        ``TypeError: Cannot interpret '<StringDtype(na_value=nan)>'
+        as a data type``(由 numpy np.issubdtype 触发)。
+
+        字符串列应在 init 阶段被 drop,后续 analyze() 走通。
+        """
+        # 模拟生产路径:从 jsonl 读出来的字符串列就是 StringDtype(na_value=nan)
+        # 这种 dtype 在 numpy 眼里不是合法 dtype,np.issubdtype 直接抛 TypeError
+        string_col = pd.array(
+            ['你好', '世界', None], dtype=pd.StringDtype(na_value=np.nan))
+        df = pd.DataFrame({
+            'answer': string_col,
+            'category':
+                pd.array(['A', 'B', 'C'], dtype='string'),
+            'score': [1.0, 2.0, 3.0],  # 标量数值列保留
+        })
+        ds = {Fields.stats: df}
+
+        # 不应抛 TypeError(未 patch 前 __init__ 在 np.issubdtype 处崩)
+        corr_analyzer = CorrelationAnalysis(ds, self.temp_output_path)
+        # 字符串列被 drop,只剩 score
+        self.assertNotIn('answer', corr_analyzer.stats.columns)
+        self.assertNotIn('category', corr_analyzer.stats.columns)
+        self.assertIn('score', corr_analyzer.stats.columns)
+        # analyze 走通(只有 1 列不画 heatmap,返回 None 也 OK)
+        corr_analyzer.analyze()
+
+    def test_issubdtype_stringdtype_raises(self):
+        """直接验证 np.issubdtype 在生产环境会抛 TypeError,确保我们
+        的修复有意义(否则说明这条路径根本不会触发 bug)。"""
+        string_col = pd.array(
+            ['x', 'y', None], dtype=pd.StringDtype(na_value=np.nan))
+        s = pd.Series(string_col)
+        # 触发原 bug 的最小调用
+        with self.assertRaises(TypeError):
+            np.issubdtype(s.dtype, np.number)
+
 
 if __name__ == '__main__':
     unittest.main()
