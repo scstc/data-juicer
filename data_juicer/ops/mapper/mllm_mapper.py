@@ -55,7 +55,11 @@ class MllmMapper(Mapper):
         super().__init__(*args, **kwargs)
 
         self.hf_model = hf_model
-        self.model_key = prepare_model(model_type="huggingface", pretrained_model_name_or_path=hf_model)
+        # torch_dtype="auto": follow the checkpoint dtype (bf16/fp16) instead of
+        # defaulting to fp32, halving VRAM usage for consumer GPUs
+        self.model_key = prepare_model(
+            model_type="huggingface", pretrained_model_name_or_path=hf_model, torch_dtype="auto"
+        )
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
         self.top_p = top_p
