@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from loguru import logger
 from pydantic import PositiveInt
 
@@ -136,34 +134,37 @@ class NlpcdaZhMapper(Mapper):
             else:
                 return {key: [] for key in samples}
 
-        texts_to_aug = samples[self.text_key]
-        res_samples = deepcopy(samples)
-
-        # get augmented texts
-        if self.sequential:
-            aug_texts = texts_to_aug
-            for aug_method in self.aug_pipeline:
-                results = []
-                for text in aug_texts:
-                    # aug and skip the original text
-                    result = aug_method.replace(text)
-                    results += result[1:] if len(result) > 1 else result
-                aug_texts = results[:]
-            if len(aug_texts) == 1 and aug_texts[0] == texts_to_aug[0]:
+        res_samples = {key: [] for key in samples}
+        # process each sample in the batch
+        for idx, text_to_aug in enumerate(samples[self.text_key]):
+            # get augmented texts for this sample
+            if self.sequential:
+                aug_texts = [text_to_aug]
+                for aug_method in self.aug_pipeline:
+                    results = []
+                    for text in aug_texts:
+                        # aug and skip the original text
+                        result = aug_method.replace(text)
+                        results += result[1:] if len(result) > 1 else result
+                    aug_texts = results[:]
+                if len(aug_texts) == 1 and aug_texts[0] == text_to_aug:
+                    aug_texts = []
+            else:
+                # apply each aug method to generate several augmented texts
                 aug_texts = []
-        else:
-            # apply each aug method to generate several augmented texts
-            aug_texts = []
-            for aug_method in self.aug_pipeline:
-                aug_texts += aug_method.replace(texts_to_aug[0])[1:]
+                for aug_method in self.aug_pipeline:
+                    aug_texts += aug_method.replace(text_to_aug)[1:]
 
-        # add augmented samples to the batch with other replicate fields
-        if self.keep_original_sample:
-            res_samples[self.text_key] += aug_texts
-        else:
-            res_samples[self.text_key] = aug_texts
-        # add other replicate fields
-        for key in res_samples:
-            if key != self.text_key:
-                res_samples[key] = res_samples[key] * len(res_samples[self.text_key])
+            # collect texts for this sample
+            if self.keep_original_sample:
+                sample_texts = [text_to_aug] + aug_texts
+            else:
+                sample_texts = aug_texts
+            res_samples[self.text_key] += sample_texts
+
+            # replicate other fields to match
+            for key in samples:
+                if key != self.text_key:
+                    res_samples[key] += [samples[key][idx]] * len(sample_texts)
+
         return res_samples
