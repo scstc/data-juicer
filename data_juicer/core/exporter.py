@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 from multiprocessing import Pool
@@ -362,6 +363,13 @@ class Exporter:
             return obj.tolist()
         if hasattr(obj, "as_py"):  # pyarrow scalar
             return Exporter._row_to_json_serializable(obj.as_py())
+        # pyarrow 会把整列 ISO 日期/时间字符串推断成 timestamp,取回即 datetime
+        if isinstance(obj, datetime.datetime):
+            if obj.time() == datetime.time.min and obj.tzinfo is None:
+                return obj.date().isoformat()  # 纯日期列回写为 "YYYY-MM-DD"
+            return obj.isoformat()
+        if isinstance(obj, (datetime.date, datetime.time)):
+            return obj.isoformat()
         return obj
 
     @staticmethod
