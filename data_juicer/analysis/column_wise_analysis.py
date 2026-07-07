@@ -303,10 +303,22 @@ class ColumnWiseAnalysis:
 
     def draw_wordcloud(self, ax, data, save_path, show=False):
         word_list = data.tolist()
+
+        # 防御 Pillow 11+ multiline anchor 限制:
+        # 若样本字段值含 \n / \r / \t,wordcloud 内部用 PIL ImageDraw.text 时
+        # 会抛 "anchor not supported for multiline text"(常见于 LLM 输出未
+        # 清洗、复制粘贴、日志黏贴场景)。把每个 token 折叠成单空格以绕开限制,
+        # 不影响词云语义。
+        def _flatten_multiline(value):
+            if not isinstance(value, str):
+                return value
+            return " ".join(value.split())
+
         word_nums = {}
         for w in word_list:
             if w is None:
                 continue
+            w = _flatten_multiline(w)
             if w in word_nums:
                 word_nums[w] += 1
             else:

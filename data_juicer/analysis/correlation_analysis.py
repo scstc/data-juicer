@@ -157,8 +157,16 @@ class CorrelationAnalysis:
         """
         self.stats = pd.DataFrame(dataset[Fields.stats])
         # only keep the numeric columns
-        for col_name in self.stats.columns:
-            if np.issubdtype(self.stats[col_name].dtype, np.number):
+        # 防御 np.issubdtype 对 pandas StringDtype(na_value=nan) 抛 TypeError
+        # (pandas 2.x StringArray 在 numpy 眼里不是合法 dtype,见 GH#52436)。
+        # 抛错的列按非数值列走 drop 分支,与原语义一致。
+        for col_name in list(self.stats.columns):
+            try:
+                is_numeric_dtype = np.issubdtype(
+                    self.stats[col_name].dtype, np.number)
+            except TypeError:
+                is_numeric_dtype = False
+            if is_numeric_dtype:
                 continue
             elif is_numeric_list_series(self.stats[col_name]):
                 self.stats[col_name] = self.stats[col_name].apply(

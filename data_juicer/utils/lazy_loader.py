@@ -259,6 +259,11 @@ class LazyLoader(types.ModuleType):
             self._package_url = package_url
         self._package_url = self._package_url.strip() if self._package_url else self._package_url
 
+        # 对 torch 禁用自动安装(Intel Mac 不支持 torch 2.8.0 预编译 wheel)
+        # 任务如不需要 torch 算子可继续运行;需要时会抛明确错误
+        base_module = module_name.split(".")[0]
+        if base_module == "torch":
+            auto_install = False
         self._auto_install = auto_install
 
         frame = inspect.currentframe().f_back
@@ -424,7 +429,13 @@ class LazyLoader(types.ModuleType):
             self._module = importlib.import_module(self._module_name)
         except ImportError:
             if not self._auto_install:
-                raise
+                # Intel Mac 上 torch 不可用:返回 None 占位,后续 torch 调用会自然报错
+                logger.warning(
+                    f"Module {self._module_name} not available "
+                    f"(auto_install disabled). Returning None placeholder."
+                )
+                self._module = None
+                return self._module
 
             # Prepare the package spec for installation
             package_spec = self._package_url if self._package_url else self._package_name

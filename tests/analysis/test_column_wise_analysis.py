@@ -1,4 +1,6 @@
 import os
+import os
+import tempfile
 import unittest
 import pandas as pd
 
@@ -193,6 +195,66 @@ class ColumnWiseAnalysisTest(DataJuicerTestCaseBase):
                 os.path.join(self.temp_output_path, f'{meta}-hist.png')))
             self.assertTrue(os.path.exists(
                 os.path.join(self.temp_output_path, f'{meta}-wordcloud.png')))
+
+    def test_wordcloud_with_multiline_text(self):
+        """回归:样本字段值含 \\n / \\r / \\t 时,WordCloud 不应触发
+        Pillow ImageText 多行 anchor 限制 (ValueError)。"""
+
+        # 构造会触发原 bug 的样本:一个 meta 字符串含 \n + \t
+        data_list = [
+            {
+                Fields.meta: {
+                    f'{DEFAULT_PREFIX}m_str':
+                        'line1\nline2\tline3',  # ← 含 \n \t
+                },
+                Fields.stats: {'stats_num': 1.0},
+            },
+            {
+                Fields.meta: {
+                    f'{DEFAULT_PREFIX}m_str':
+                        'line1\nline2\tline3',  # ← 重复,应被合并到同一个 key
+                },
+                Fields.stats: {'stats_num': 2.0},
+            },
+            {
+                Fields.meta: {
+                    f'{DEFAULT_PREFIX}m_str': 'plain',  # ← 干净样本
+                },
+                Fields.stats: {'stats_num': 3.0},
+            },
+        ]
+        ds = NestedDataset.from_list(data_list)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cwa = ColumnWiseAnalysis(ds, tmpdir, save_stats_in_one_file=False)
+            # 跑全流程;若 _flatten_multiline 没生效,这里会因 wordcloud→PIL
+            # 报 ValueError("anchor not supported for multiline text") 退出
+            cwa.analyze()
+            wc_path = os.path.join(tmpdir, f'{DEFAULT_PREFIX}m_str-wordcloud.png')
+            self.assertTrue(os.path.exists(wc_path),
+                            f'wordcloud png should be generated at {wc_path}')
+            # 关键校验:全流程跑通且 PNG 落盘即视为通过
+            self.assertGreater(os.path.getsize(wc_path), 0)
+
+    def test_wordcloud_flattens_keys(self):
+        """单元验证 draw_wordcloud 内 _flatten_multiline 把含 \\n 的字符串折叠成单空格。"""
+        data_list = [{
+            Fields.meta: {f'{DEFAULT_PREFIX}m': 'alpha\nbeta'},
+            Fields.stats: {'s': 1.0},
+        }, {
+            Fields.meta: {f'{DEFAULT_PREFIX}m': 'alpha\nbeta'},
+            Fields.stats: {'s': 2.0},
+        }, {
+            Fields.meta: {f'{DEFAULT_PREFIX}m': 'gamma'},
+            Fields.stats: {'s': 3.0},
+        }]
+        ds = NestedDataset.from_list(data_list)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cwa = ColumnWiseAnalysis(ds, tmpdir, save_stats_in_one_file=False)
+            out = os.path.join(tmpdir, 'wc.png')
+            cwa.draw_wordcloud(None, cwa.meta.iloc[:, 0], out)
+            self.assertTrue(os.path.exists(out))
+            self.assertGreater(os.path.getsize(out), 0)
 
 
 if __name__ == '__main__':
