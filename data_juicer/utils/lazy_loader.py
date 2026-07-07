@@ -259,10 +259,12 @@ class LazyLoader(types.ModuleType):
             self._package_url = package_url
         self._package_url = self._package_url.strip() if self._package_url else self._package_url
 
-        # 对 torch 禁用自动安装(Intel Mac 不支持 torch 2.8.0 预编译 wheel)
-        # 任务如不需要 torch 算子可继续运行;需要时会抛明确错误
+        # 对 torch/ray 禁用自动安装
+        # - Intel Mac 不支持 torch 2.8.0 预编译 wheel
+        # - ray 2.52.0 在 Python 3.12+ 装不上(无匹配 wheel,即使装也常失败)
+        # 任务如不需要这些库的算子可继续运行;需要时会抛明确错误
         base_module = module_name.split(".")[0]
-        if base_module == "torch":
+        if base_module in ("torch", "ray"):
             auto_install = False
         self._auto_install = auto_install
 
