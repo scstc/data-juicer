@@ -57,3 +57,6 @@ demos/local/*
 .claude/
 CLAUDE.md
 .omc/
+
+# 算子冒烟测试(本地临时,含 LLM 凭证导出,不入库)
+op_smoke_tests/
