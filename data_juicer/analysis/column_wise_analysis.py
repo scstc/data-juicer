@@ -182,10 +182,33 @@ class ColumnWiseAnalysis:
                 else:
                     axes = [None] * num_subcol
 
-                if not skip_export:
+                # degenerate string columns make unreadable charts: per-sample
+                # record/log columns are (nearly) all-unique, so the histogram
+                # x-axis becomes an ink smear of long labels; all-empty columns
+                # have nothing to show. Skip drawing for both.
+                non_empty = data.dropna()
+                non_empty = non_empty[non_empty.astype(str).str.strip() != ""]
+                nunique = non_empty.nunique()
+                degenerate = len(non_empty) == 0 or (nunique > 20 and nunique / len(non_empty) > 0.5)
+
+                if not skip_export and degenerate:
+                    logging.warning(
+                        f"Skip charts for column [{column_name}]: "
+                        f"{'all empty' if len(non_empty) == 0 else 'values are (nearly) all unique'}"
+                    )
+                if not skip_export and not degenerate:
                     self.draw_hist(axes[0], data, os.path.join(self.output_path, f"{column_name}-hist.png"))
 
-                    self.draw_wordcloud(axes[1], data, os.path.join(self.output_path, f"{column_name}-wordcloud.png"))
+                    try:
+                        self.draw_wordcloud(
+                            axes[1], data, os.path.join(self.output_path, f"{column_name}-wordcloud.png")
+                        )
+                    except (ValueError, IndexError) as e:
+                        # wordcloud fails on degenerate frequencies (e.g. every value
+                        # unique with count 1, as in per-sample LLM record columns):
+                        # "Couldn't find space to draw". Skip the chart instead of
+                        # aborting the whole analysis.
+                        logging.warning(f"Skip wordcloud for column [{column_name}]: {e}")
 
             # add a title to the figure of this stat
             if self.save_stats_in_one_file:
